@@ -1,55 +1,74 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import os
-import shutil
-import uuid
-from iaModels.transcribir import transcribe_audio
+import sys
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
+# Agregar iaModels al sys.path para poder importar el módulo
+sys.path.append(os.path.join(os.path.dirname(__file__), 'iaModels'))
+
+# Ahora sí puedes importar el transcribe_audio
+from transcribir import transcribe_audio
+
+# Inicializar FastAPI
 app = FastAPI()
 
-# Permitir frontend desde cualquier origen
+# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://solvo-audio-ai.vercel.app/transcribeMP4"],  # Reemplaza por el dominio real en producción
+    allow_origins=[
+        "http://localhost:3000",
+        "https://solvo-audio-ai.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+# Endpoint POST para recibir y transcribir un archivo de audio
 @app.post("/transcribir-audio/")
-async def transcribir_endpoint(file: UploadFile = File(...)):
+async def transcribir_audio_endpoint(file: UploadFile = File(...)):
     try:
-        ext = os.path.splitext(file.filename)[-1]
-        temp_filename = f"{uuid.uuid4()}{ext}"
-        temp_path = os.path.join(UPLOAD_DIR, temp_filename)
+        # Guardar archivo temporalmente
+        temp_path = f"uploads/{file.filename}"
+        with open(temp_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
 
-        # Guardar temporalmente el audio
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        # Transcribir
+        # Transcribir usando Whisper
         texto = transcribe_audio(temp_path)
 
         # Eliminar el archivo temporal
         os.remove(temp_path)
 
-        return JSONResponse(content={"transcripcion": texto})
+        return {"transcripcion": texto}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 🔥 Este bloque es CLAVE para que Render use el puerto correcto
+# Permitir ejecutar desde la terminal también
+def main():
+    if len(sys.argv) < 2:
+        print("Uso: python main.py <archivo_audio.mp3>")
+        sys.exit(1)
+
+    path = sys.argv[1]
+    if not os.path.exists(path):
+        print(f"❌ El archivo {path} no existe.")
+        sys.exit(1)
+
+    print("⏳ Transcribiendo audio...")
+    try:
+        texto = transcribe_audio(path)
+        print("✅ Transcripción completada:\n")
+        print(texto)
+    except Exception as e:
+        print(f"❌ Error al transcribir: {e}")
+
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=port,
-        timeout_keep_alive=300,  # 5 minutos
-        workers=1  # Para evitar problemas con el modelo Whisper
-    )
+    # Si se llama desde terminal: `python main.py archivo.mp3`
+    if len(sys.argv) > 1:
+        main()
+    else:
+        # Si no hay argumentos, iniciar FastAPI
+        uvicorn.run("main:app", host="0.0.0.0", port=8000)

@@ -4,4 +4,3 @@ python-multipart
 openai-whisper
 numpy<2.0
 ffmpeg-python
-setuptools<81
