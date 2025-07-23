@@ -2,6 +2,6 @@ fastapi
 uvicorn
 python-multipart
 openai-whisper
-numpy
+numpy<2.0
 ffmpeg-python
 setuptools<81
