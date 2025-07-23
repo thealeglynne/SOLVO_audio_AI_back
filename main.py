@@ -11,7 +11,7 @@ app = FastAPI()
 # Permitir frontend desde cualquier origen
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Reemplaza por el dominio real en producción
+    allow_origins=["https://solvo-audio-ai.vercel.app/transcribeMP4"],  # Reemplaza por el dominio real en producción
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,4 +46,10 @@ async def transcribir_endpoint(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        timeout_keep_alive=300,  # 5 minutos
+        workers=1  # Para evitar problemas con el modelo Whisper
+    )
