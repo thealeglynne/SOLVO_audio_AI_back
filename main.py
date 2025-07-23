@@ -34,10 +34,16 @@ async def transcribir_endpoint(file: UploadFile = File(...)):
         # Transcribir
         texto = transcribe_audio(temp_path)
 
-        # Eliminar el archivo temporal (opcional)
+        # Eliminar el archivo temporal
         os.remove(temp_path)
 
         return JSONResponse(content={"transcripcion": texto})
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# 🔥 Este bloque es CLAVE para que Render use el puerto correcto
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
