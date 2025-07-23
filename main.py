@@ -66,7 +66,7 @@ def main():
         print(f"❌ Error al transcribir: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        main()
-    else:
-        print("Este script debe ejecutarse con uvicorn desde la línea de comandos.")
+    import os
+    port = int(os.environ.get("PORT", 8000))  # 8000 solo por si corres local
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
