@@ -66,9 +66,7 @@ def main():
         print(f"❌ Error al transcribir: {e}")
 
 if __name__ == "__main__":
-    # Si se llama desde terminal: `python main.py archivo.mp3`
     if len(sys.argv) > 1:
         main()
     else:
-        # Si no hay argumentos, iniciar FastAPI
-        uvicorn.run("main:app", host="0.0.0.0", port=10000)
+        print("Este script debe ejecutarse con uvicorn desde la línea de comandos.")
