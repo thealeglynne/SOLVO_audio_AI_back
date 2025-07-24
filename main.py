@@ -1,5 +1,6 @@
 import os
 import sys
+import time  # <- necesario si quieres usar timestamp luego
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -29,8 +30,14 @@ app.add_middleware(
 @app.post("/transcribir-audio/")
 async def transcribir_audio_endpoint(file: UploadFile = File(...)):
     try:
+        # Asegurar que la carpeta 'uploads' exista
+        os.makedirs("uploads", exist_ok=True)
+
+        # Reemplazar espacios en el nombre del archivo
+        safe_filename = file.filename.replace(" ", "_")
+        temp_path = f"uploads/{safe_filename}"
+
         # Guardar archivo temporalmente
-        temp_path = f"uploads/{file.filename}"
         with open(temp_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -66,7 +73,5 @@ def main():
         print(f"❌ Error al transcribir: {e}")
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 8000))  # 8000 solo por si corres local
     uvicorn.run(app, host="0.0.0.0", port=port)
-
