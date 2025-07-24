@@ -1,17 +1,15 @@
 import os
+import uuid
 import sys
-import time
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Agrega el subdirectorio 'iaModels' al path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'iaModels'))
+# Asegurarse de poder importar desde iaModels
+sys.path.append(os.path.join(os.path.dirname(__file__), "iaModels"))
+from transcribir import convert_to_wav, transcribe_audio
 
-# Importar función de transcripción
-from transcribir import transcribe_audio
-
-# Inicializar app
+# Inicializar FastAPI
 app = FastAPI()
 
 # Configurar CORS
@@ -26,56 +24,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Ruta base para Render (evita el 404 en "/")
-@app.get("/")
-def root():
-    return {"status": "Servidor de transcripción activo ✅"}
-
-# Endpoint POST para transcribir audio
 @app.post("/transcribir-audio/")
 async def transcribir_audio_endpoint(file: UploadFile = File(...)):
     try:
         os.makedirs("uploads", exist_ok=True)
 
-        safe_filename = file.filename.replace(" ", "_").replace("..", "")
-        temp_path = os.path.join("uploads", safe_filename)
-
         # Guardar archivo temporal
-        with open(temp_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        ext = file.filename.split('.')[-1]
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        input_path = os.path.join("uploads", unique_name)
+
+        with open(input_path, "wb") as f:
+            f.write(await file.read())
+
+        # Convertir si es necesario
+        if not input_path.endswith(".wav"):
+            wav_path = input_path.rsplit(".", 1)[0] + ".wav"
+            convert_to_wav(input_path, wav_path)
+        else:
+            wav_path = input_path
 
         # Transcribir
-        texto = transcribe_audio(temp_path)
+        texto = transcribe_audio(wav_path)
 
-        # Eliminar archivo
-        os.remove(temp_path)
+        # Eliminar archivos temporales
+        os.remove(input_path)
+        if os.path.exists(wav_path) and wav_path != input_path:
+            os.remove(wav_path)
 
         return {"transcripcion": texto}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al transcribir: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Permitir correr desde CLI
-def main():
-    if len(sys.argv) < 2:
-        print("Uso: python main.py <archivo_audio.mp3>")
-        sys.exit(1)
-
-    path = sys.argv[1]
-    if not os.path.exists(path):
-        print(f"❌ El archivo {path} no existe.")
-        sys.exit(1)
-
-    print("⏳ Transcribiendo audio...")
-    try:
-        texto = transcribe_audio(path)
-        print("✅ Transcripción completada:\n")
-        print(texto)
-    except Exception as e:
-        print(f"❌ Error al transcribir: {e}")
-
-# 🚀 Iniciar servidor si es llamado como app
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render usa este valor
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)

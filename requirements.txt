@@ -1,6 +1,5 @@
 fastapi
 uvicorn
+pydub
+SpeechRecognition
 python-multipart
-openai-whisper
-numpy<2.0
-ffmpeg-python

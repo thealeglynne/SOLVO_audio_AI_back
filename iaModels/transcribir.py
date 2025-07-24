@@ -1,27 +1,22 @@
-import whisper
 import os
-import sys
+from pydub import AudioSegment
+import speech_recognition as sr
+
+def convert_to_wav(input_path: str, output_path: str) -> None:
+    audio = AudioSegment.from_file(input_path)
+    audio.export(output_path, format="wav")
 
 def transcribe_audio(file_path: str) -> str:
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"No se encontró el archivo: {file_path}")
+    if not file_path.lower().endswith('.wav'):
+        raise ValueError("El archivo debe estar en formato WAV para SpeechRecognition.")
 
-    model = whisper.load_model("base")
-    result = model.transcribe(file_path)
-
-    return result["text"]
-
-# Agrega este bloque
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Uso: python transcribir.py <archivo.mp3>")
-        sys.exit(1)
-
-    path = sys.argv[1]
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(file_path) as source:
+        audio = recognizer.record(source)
 
     try:
-        texto = transcribe_audio(path)
-        print("\n📝 Transcripción:\n")
-        print(texto)
-    except Exception as e:
-        print(f"⚠️ Error al transcribir: {e}")
+        return recognizer.recognize_google(audio, language="es-ES")
+    except sr.UnknownValueError:
+        return "No se pudo entender el audio."
+    except sr.RequestError as e:
+        return f"Error al conectarse a Google Speech Recognition: {e}"
