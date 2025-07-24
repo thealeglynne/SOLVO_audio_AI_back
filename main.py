@@ -1,17 +1,17 @@
 import os
 import sys
-import time  # <- necesario si quieres usar timestamp luego
+import time
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Agregar iaModels al sys.path para poder importar el módulo
+# Agrega el subdirectorio 'iaModels' al path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'iaModels'))
 
-# Ahora sí puedes importar el transcribe_audio
+# Importar función de transcripción
 from transcribir import transcribe_audio
 
-# Inicializar FastAPI
+# Inicializar app
 app = FastAPI()
 
 # Configurar CORS
@@ -26,34 +26,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Endpoint POST para recibir y transcribir un archivo de audio
+# ✅ Ruta base para Render (evita el 404 en "/")
+@app.get("/")
+def root():
+    return {"status": "Servidor de transcripción activo ✅"}
+
+# Endpoint POST para transcribir audio
 @app.post("/transcribir-audio/")
 async def transcribir_audio_endpoint(file: UploadFile = File(...)):
     try:
-        # Asegurar que la carpeta 'uploads' exista
         os.makedirs("uploads", exist_ok=True)
 
-        # Reemplazar espacios en el nombre del archivo
-        safe_filename = file.filename.replace(" ", "_")
-        temp_path = f"uploads/{safe_filename}"
+        safe_filename = file.filename.replace(" ", "_").replace("..", "")
+        temp_path = os.path.join("uploads", safe_filename)
 
-        # Guardar archivo temporalmente
+        # Guardar archivo temporal
         with open(temp_path, "wb") as f:
             content = await file.read()
             f.write(content)
 
-        # Transcribir usando Whisper
+        # Transcribir
         texto = transcribe_audio(temp_path)
 
-        # Eliminar el archivo temporal
+        # Eliminar archivo
         os.remove(temp_path)
 
         return {"transcripcion": texto}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error al transcribir: {e}")
 
-# Permitir ejecutar desde la terminal también
+# Permitir correr desde CLI
 def main():
     if len(sys.argv) < 2:
         print("Uso: python main.py <archivo_audio.mp3>")
@@ -72,6 +75,7 @@ def main():
     except Exception as e:
         print(f"❌ Error al transcribir: {e}")
 
+# 🚀 Iniciar servidor si es llamado como app
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # 8000 solo por si corres local
+    port = int(os.environ.get("PORT", 10000))  # Render usa este valor
     uvicorn.run(app, host="0.0.0.0", port=port)
